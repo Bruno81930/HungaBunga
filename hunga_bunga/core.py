@@ -1,9 +1,11 @@
-
+import json
 import warnings
+
 warnings.filterwarnings('ignore')
 
 import sklearn.model_selection
 import numpy as np
+
 nan = float('nan')
 import traceback
 
@@ -12,17 +14,22 @@ from collections import Counter
 from multiprocessing import cpu_count
 from time import time
 from tabulate import tabulate
-try: from tqdm import tqdm
-except: tqdm = lambda x: x
+
+try:
+    from tqdm import tqdm
+except:
+    tqdm = lambda x: x
 
 from sklearn.cluster import KMeans
 from sklearn.model_selection import StratifiedShuffleSplit as sss, ShuffleSplit as ss, GridSearchCV
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier, ExtraTreesRegressor, AdaBoostClassifier, AdaBoostRegressor
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier, \
+    ExtraTreesRegressor, AdaBoostClassifier, AdaBoostRegressor
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn import model_selection
 
-
-TREE_N_ENSEMBLE_MODELS = [RandomForestClassifier, GradientBoostingClassifier, DecisionTreeClassifier, DecisionTreeRegressor,ExtraTreesClassifier, ExtraTreesRegressor, AdaBoostClassifier, AdaBoostRegressor]
+TREE_N_ENSEMBLE_MODELS = [RandomForestClassifier, GradientBoostingClassifier, DecisionTreeClassifier,
+                          DecisionTreeRegressor, ExtraTreesClassifier, ExtraTreesRegressor, AdaBoostClassifier,
+                          AdaBoostRegressor]
 
 
 class GridSearchCVProgressBar(sklearn.model_selection.GridSearchCV):
@@ -33,11 +40,13 @@ class GridSearchCVProgressBar(sklearn.model_selection.GridSearchCV):
         cv = sklearn.model_selection._split.check_cv(self.cv, None)
         n_splits = getattr(cv, 'n_splits', 3)
         max_value = n_candidates * n_splits
+
         class ParallelProgressBar(sklearn.model_selection._search.Parallel):
             def __call__(self, iterable):
                 iterable = tqdm(iterable, total=max_value)
                 iterable.set_description("GridSearchCV")
                 return super(ParallelProgressBar, self).__call__(iterable)
+
         sklearn.model_selection._search.Parallel = ParallelProgressBar
         return iterator
 
@@ -50,11 +59,13 @@ class RandomizedSearchCVProgressBar(sklearn.model_selection.RandomizedSearchCV):
         cv = sklearn.model_selection._split.check_cv(self.cv, None)
         n_splits = getattr(cv, 'n_splits', 3)
         max_value = n_candidates * n_splits
+
         class ParallelProgressBar(sklearn.model_selection._search.Parallel):
             def __call__(self, iterable):
                 iterable = tqdm(iterable, total=max_value)
                 iterable.set_description("RandomizedSearchCV")
                 return super(ParallelProgressBar, self).__call__(iterable)
+
         sklearn.model_selection._search.Parallel = ParallelProgressBar
         return iterator
 
@@ -68,17 +79,19 @@ def upsample_indices_clf(inds, y):
         if maxCount == count: continue
         ratio = int(maxCount / count)
         cur_inds = inds[y == klass]
-        extras.append(np.concatenate( (np.repeat(cur_inds, ratio - 1), np.random.choice(cur_inds, maxCount - ratio * count, replace=False))))
+        extras.append(np.concatenate(
+            (np.repeat(cur_inds, ratio - 1), np.random.choice(cur_inds, maxCount - ratio * count, replace=False))))
     return np.concatenate([inds] + extras)
 
 
-def cv_clf(x, y, test_size = 0.2, n_splits = 5, random_state=None, doesUpsample = True):
-    sss_obj = sss(n_splits, test_size, random_state=random_state).split(x, y)
-    if not doesUpsample: yield sss_obj
+def cv_clf(x, y, test_size=0.2, n_splits=5, random_state=None, doesUpsample=True):
+    sss_obj = sss(n_splits=n_splits, test_size=test_size, random_state=random_state).split(x, y)
+    if not doesUpsample: yield from list(sss_obj)
     for train_inds, valid_inds in sss_obj: yield (upsample_indices_clf(train_inds, y[train_inds]), valid_inds)
 
 
-def cv_reg(x, test_size = 0.2, n_splits = 5, random_state=None): return ss(n_splits, test_size, random_state=random_state).split(x)
+def cv_reg(x, test_size=0.2, n_splits=5, random_state=None): return ss(n_splits, test_size,
+                                                                       random_state=random_state).split(x)
 
 
 def timeit(klass, params, x, y):
@@ -88,20 +101,32 @@ def timeit(klass, params, x, y):
     return time() - start
 
 
-def main_loop(models_n_params, x, y, isClassification, test_size = 0.2, n_splits = 5, random_state=None, upsample=True, scoring=None, verbose=True, n_jobs =cpu_count() - 1, brain=False, grid_search=True):
-    def cv_(): return cv_clf(x, y, test_size, n_splits, random_state, upsample) if isClassification else cv_reg(x, test_size, n_splits, random_state)
+def main_loop(models_n_params, x, y, isClassification, test_size=0.2, n_splits=5, random_state=None, upsample=True,
+              scoring=None, verbose=True, n_jobs=cpu_count() - 1, brain=False, grid_search=True):
+    def cv_():
+        return cv_clf(x, y, test_size, n_splits, random_state, upsample) if isClassification else cv_reg(x, test_size,
+                                                                                                         n_splits,
+                                                                                                         random_state)
+
     res = []
+    stats = []
     num_features = x.shape[1]
     scoring = scoring or ('accuracy' if isClassification else 'neg_mean_squared_error')
     if brain: print('Scoring criteria:', scoring)
     for i, (clf_Klass, parameters) in enumerate(tqdm(models_n_params)):
         try:
-            if brain: print('-'*15, 'model %d/%d' % (i+1, len(models_n_params)), '-'*15)
+            if brain: print('-' * 15, 'model %d/%d' % (i + 1, len(models_n_params)), '-' * 15)
             if brain: print(clf_Klass.__name__)
-            if clf_Klass == KMeans: parameters['n_clusters'] = [len(np.unique(y))]
-            elif clf_Klass in TREE_N_ENSEMBLE_MODELS: parameters['max_features'] = [v for v in parameters['max_features'] if v is None or type(v)==str or v<=num_features]
-            if grid_search: clf_search = GridSearchCVProgressBar(clf_Klass(), parameters, scoring, cv=cv_(), n_jobs=n_jobs)
-            else: clf_search = RandomizedSearchCVProgressBar(clf_Klass(), parameters, scoring, cv=cv_(), n_jobs=n_jobs)
+            if clf_Klass == KMeans:
+                parameters['n_clusters'] = [len(np.unique(y))]
+            elif clf_Klass in TREE_N_ENSEMBLE_MODELS:
+                parameters['max_features'] = [v for v in parameters['max_features'] if
+                                              v is None or type(v) == str or v <= num_features]
+            if grid_search:
+                clf_search = GridSearchCVProgressBar(clf_Klass(), parameters, scoring=scoring, cv=cv_(), n_jobs=n_jobs)
+            else:
+                clf_search = RandomizedSearchCVProgressBar(clf_Klass(), parameters, scoring=scoring, cv=cv_(),
+                                                           n_jobs=n_jobs)
             clf_search.fit(x, y)
             timespent = timeit(clf_Klass, clf_search.best_params_, x, y)
             if brain: print('best score:', clf_search.best_score_, 'time/clf: %0.3f seconds' % timespent)
@@ -109,23 +134,44 @@ def main_loop(models_n_params, x, y, isClassification, test_size = 0.2, n_splits
             if brain: pprint(clf_search.best_params_)
             if verbose:
                 print('validation scores:', clf_search.cv_results_['mean_test_score'])
-                print('training scores:', clf_search.cv_results_['mean_train_score'])
+                # print('training scores:', clf_search.cv_results_['mean_train_score'])
             res.append((clf_search.best_estimator_, clf_search.best_score_, timespent))
+            [stats.append({
+                "Estimator": clf_search.best_estimator_.__class__.__name__,
+                "Parameters": json.dumps(param),
+                "Mean Test Score": list(clf_search.cv_results_["mean_test_score"])[idx],
+                "Std Test Score": list(clf_search.cv_results_["std_test_score"])[idx],
+                "Mean Fit Time": list(clf_search.cv_results_["mean_fit_time"])[idx],
+                "Std Fit Time": list(clf_search.cv_results_["std_fit_time"])[idx],
+                "Mean Score Time": list(clf_search.cv_results_["mean_score_time"])[idx],
+                "Std Score Time": list(clf_search.cv_results_["std_score_time"])[idx],
+            }) for idx, param in enumerate(clf_search.cv_results_["params"])]
         except Exception as e:
             if verbose: traceback.print_exc()
             res.append((clf_Klass(), -np.inf, np.inf))
-    if brain: print('='*60)
-    if brain: print(tabulate([[m.__class__.__name__, '%.3f'%s, '%.3f'%t] for m, s, t in res], headers=['Model', scoring, 'Time/clf (s)']))
+            stats.append({
+                "Estimator": clf_Klass(),
+                "Parameters": 'all',
+                "Mean Test Score": np.inf,
+                "Std Test Score": np.inf,
+                "Mean Fit Time": np.inf,
+                "Std Fit Time": np.inf,
+                "Mean Score Time": np.inf,
+                "Std Score Time": np.inf,
+            })
+    if brain: print('=' * 60)
+    if brain: print(tabulate([[m.__class__.__name__, '%.3f' % s, '%.3f' % t] for m, s, t in res],
+                             headers=['Model', scoring, 'Time/clf (s)']))
     winner_ind = np.argmax([v[1] for v in res])
     winner = res[winner_ind][0]
-    if brain: print('='*60)
+    if brain: print('=' * 60)
     if brain: print('The winner is: %s with score %0.3f.' % (winner.__class__.__name__, res[winner_ind][1]))
-    return winner, res
-
+    result = {"winner": winner, "res": res, "stats": stats}
+    return result
 
 
 if __name__ == '__main__':
-    y = np.array([0,1,0,0,0,3,1,1,3])
+    y = np.array([0, 1, 0, 0, 0, 3, 1, 1, 3])
     x = np.zeros(len(y))
-    for t, v in cv_reg(x): print(v,t)
-    for t, v in cv_clf(x, y, test_size=5): print(v,t)
+    for t, v in cv_reg(x): print(v, t)
+    for t, v in cv_clf(x, y, test_size=5): print(v, t)

@@ -1,6 +1,8 @@
-
 import random
 import warnings
+
+from sklearn.metrics import f1_score
+
 warnings.filterwarnings('ignore')
 
 import numpy as np
@@ -17,6 +19,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import ParameterSampler
+import pandas as pd
 
 from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
@@ -28,7 +31,6 @@ from sklearn.base import is_classifier
 from core import *
 from params import *
 
-
 linear_models_n_params = [
     (SGDClassifier,
      {'loss': ['hinge', 'log', 'modified_huber', 'squared_hinge'],
@@ -37,15 +39,15 @@ linear_models_n_params = [
       }),
 
     (LogisticRegression,
-     {'penalty': penalty_12, 'max_iter': max_iter, 'tol': tol,  'warm_start': warm_start, 'C':C, 'solver': ['liblinear']
+     {'penalty': penalty_12, 'max_iter': max_iter, 'tol': tol, 'warm_start': warm_start, 'C': C, 'solver': ['liblinear']
       }),
 
     (Perceptron,
-     {'penalty': penalty_all, 'alpha': alpha, 'n_iter': n_iter, 'eta0': eta0, 'warm_start': warm_start
+     {'penalty': penalty_all, 'n_iter_no_change': n_iter, 'alpha': alpha, 'eta0': eta0, 'warm_start': warm_start
       }),
 
     (PassiveAggressiveClassifier,
-     {'C': C, 'n_iter': n_iter, 'warm_start': warm_start,
+     {'C': C, 'n_iter_no_change': n_iter, 'warm_start': warm_start,
       'loss': ['hinge', 'squared_hinge'],
       })
 ]
@@ -54,30 +56,32 @@ linear_models_n_params_small = linear_models_n_params
 
 svm_models_n_params = [
     (SVC,
-     {'C':C, 'kernel': kernel, 'degree': degree, 'gamma': gamma, 'coef0': coef0, 'shrinking': shrinking, 'tol': tol, 'max_iter': max_iter_inf2}),
+     {'C': C, 'kernel': kernel, 'degree': degree, 'gamma': gamma, 'coef0': coef0, 'shrinking': shrinking, 'tol': tol,
+      'max_iter': max_iter_inf2}),
 
     (NuSVC,
      {'nu': nu, 'kernel': kernel, 'degree': degree, 'gamma': gamma, 'coef0': coef0, 'shrinking': shrinking, 'tol': tol
       }),
 
     (LinearSVC,
-     { 'C': C, 'penalty_12': penalty_12, 'tol': tol, 'max_iter': max_iter,
-       'loss': ['hinge', 'squared_hinge'],
-       })
+     {'C': C, 'penalty_12': penalty_12, 'tol': tol, 'max_iter': max_iter,
+      'loss': ['hinge', 'squared_hinge'],
+      })
 ]
 
 svm_models_n_params_small = [
     (SVC,
-     {'C':C, 'kernel': kernel, 'degree': degree, 'gamma': gamma, 'coef0': coef0, 'shrinking': shrinking, 'tol': tol, 'max_iter': max_iter_inf2}),
+     {'C': C, 'kernel': kernel, 'degree': degree, 'gamma': gamma, 'coef0': coef0, 'shrinking': shrinking, 'tol': tol,
+      'max_iter': max_iter_inf2}),
 
     (NuSVC,
      {'nu': nu, 'kernel': kernel, 'degree': degree, 'gamma': gamma, 'coef0': coef0, 'shrinking': shrinking, 'tol': tol
       }),
 
     (LinearSVC,
-     { 'C': C, 'penalty': penalty_12, 'tol': tol, 'max_iter': max_iter,
-       'loss': ['hinge', 'squared_hinge'],
-       })
+     {'C': C, 'penalty': penalty_12, 'tol': tol, 'max_iter': max_iter,
+      'loss': ['hinge', 'squared_hinge'],
+      })
 ]
 
 neighbor_models_n_params = [
@@ -87,7 +91,8 @@ neighbor_models_n_params = [
       'init': ['k-means++', 'random']}),
 
     (KNeighborsClassifier,
-     {'n_neighbors': n_neighbors, 'algo': neighbor_algo, 'leaf_size': neighbor_leaf_size, 'metric': neighbor_metric,
+     {'n_neighbors': n_neighbors, 'algorithm': neighbor_algo, 'leaf_size': neighbor_leaf_size,
+      'metric': neighbor_metric,
       'weights': ['uniform', 'distance'],
       'p': [1, 2]
       }),
@@ -98,7 +103,7 @@ neighbor_models_n_params = [
       }),
 
     (RadiusNeighborsClassifier,
-     {'radius': neighbor_radius, 'algo': neighbor_algo, 'leaf_size': neighbor_leaf_size, 'metric': neighbor_metric,
+     {'radius': neighbor_radius, 'algorithm': neighbor_algo, 'leaf_size': neighbor_leaf_size, 'metric': neighbor_metric,
       'weights': ['uniform', 'distance'],
       'p': [1, 2],
       'outlier_label': [-1]
@@ -120,25 +125,25 @@ bayes_models_n_params = [
 
 nn_models_n_params = [
     (MLPClassifier,
-     { 'hidden_layer_sizes': [(16,), (64,), (100,), (32, 32)],
-       'activation': ['identity', 'logistic', 'tanh', 'relu'],
-       'alpha': alpha, 'learning_rate': learning_rate, 'tol': tol, 'warm_start': warm_start,
-       'batch_size': ['auto', 50],
-       'max_iter': [1000],
-       'early_stopping': [True, False],
-       'epsilon': [1e-8, 1e-5]
-       })
+     {'hidden_layer_sizes': [(16,), (64,), (100,), (32, 32)],
+      'activation': ['identity', 'logistic', 'tanh', 'relu'],
+      'alpha': alpha, 'learning_rate': learning_rate, 'tol': tol, 'warm_start': warm_start,
+      'batch_size': ['auto', 50],
+      'max_iter': [1000],
+      'early_stopping': [True, False],
+      'epsilon': [1e-8, 1e-5]
+      })
 ]
 
 nn_models_n_params_small = [
     (MLPClassifier,
-     { 'hidden_layer_sizes': [(64,), (32, 64)],
-       'batch_size': ['auto', 50],
-       'activation': ['identity', 'tanh', 'relu'],
-       'max_iter': [500],
-       'early_stopping': [True],
-       'learning_rate': learning_rate_small
-       })
+     {'hidden_layer_sizes': [(64,), (32, 64)],
+      'batch_size': ['auto', 50],
+      'activation': ['identity', 'tanh', 'relu'],
+      'max_iter': [500],
+      'early_stopping': [True],
+      'learning_rate': learning_rate_small
+      })
 ]
 
 tree_models_n_params = [
@@ -146,55 +151,92 @@ tree_models_n_params = [
     (RandomForestClassifier,
      {'criterion': ['gini', 'entropy'],
       'max_features': max_features, 'n_estimators': n_estimators, 'max_depth': max_depth,
-      'min_samples_split': min_samples_split, 'min_impurity_split': min_impurity_split, 'warm_start': warm_start, 'min_samples_leaf': min_samples_leaf,
+      'min_samples_split': min_samples_split, 'min_impurity_split': min_impurity_split, 'warm_start': warm_start,
+      'min_samples_leaf': min_samples_leaf,
       }),
 
     (DecisionTreeClassifier,
      {'criterion': ['gini', 'entropy'],
-      'max_features': max_features, 'max_depth': max_depth, 'min_samples_split': min_samples_split, 'min_impurity_split':min_impurity_split, 'min_samples_leaf': min_samples_leaf
+      'max_features': max_features, 'max_depth': max_depth, 'min_samples_split': min_samples_split,
+      'min_impurity_split': min_impurity_split, 'min_samples_leaf': min_samples_leaf
       }),
 
     (ExtraTreesClassifier,
      {'n_estimators': n_estimators, 'max_features': max_features, 'max_depth': max_depth,
-      'min_samples_split': min_samples_split, 'min_samples_leaf': min_samples_leaf, 'min_impurity_split': min_impurity_split, 'warm_start': warm_start,
-      'criterion': ['gini', 'entropy']})
+      'min_samples_split': min_samples_split, 'min_samples_leaf': min_samples_leaf,
+      'min_impurity_split': min_impurity_split, 'warm_start': warm_start,
+      'criterion': ['gini', 'entropy']}),
+
+    (GradientBoostingClassifier,
+     {'n_estimators': n_estimators, 'max_features': max_features, 'max_depth': max_depth,
+      'min_samples_split': min_samples_split,
+      'min_samples_leaf': min_samples_leaf, 'min_impurity_split': min_impurity_split, 'warm_start': warm_start})
 ]
 
 tree_models_n_params_small = [
 
     (RandomForestClassifier,
-     {'max_features_small': max_features_small, 'n_estimators_small': n_estimators_small, 'min_samples_split': min_samples_split, 'max_depth_small': max_depth_small, 'min_samples_leaf': min_samples_leaf
+     {'max_features': max_features_small, 'n_estimators': n_estimators_small,
+      'min_samples_split': min_samples_split, 'max_depth': max_depth_small, 'min_samples_leaf': min_samples_leaf
       }),
 
     (DecisionTreeClassifier,
-     {'max_features_small': max_features_small, 'max_depth_small': max_depth_small, 'min_samples_split': min_samples_split, 'min_samples_leaf': min_samples_leaf
+     {'max_features': max_features_small, 'max_depth': max_depth_small,
+      'min_samples_split': min_samples_split, 'min_samples_leaf': min_samples_leaf
       }),
 
     (ExtraTreesClassifier,
-     {'n_estimators_small': n_estimators_small, 'max_features_small': max_features_small, 'max_depth_small': max_depth_small,
+     {'n_estimators': n_estimators_small, 'max_features': max_features_small,
+      'max_depth': max_depth_small,
+      'min_samples_split': min_samples_split, 'min_samples_leaf': min_samples_leaf}),
+
+    (GradientBoostingClassifier,
+     {'n_estimators': n_estimators_small, 'max_features': max_features_small, 'max_depth': max_depth_small,
       'min_samples_split': min_samples_split, 'min_samples_leaf': min_samples_leaf})
 ]
 
 
-def run_all_classifiers(x, y, small = True, normalize_x = True, n_jobs=cpu_count()-1, brain=False, test_size=0.2, n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True):
-    all_params = (linear_models_n_params_small if small else linear_models_n_params) +  (nn_models_n_params_small if small else nn_models_n_params) + ([] if small else gaussianprocess_models_n_params) + neighbor_models_n_params + (svm_models_n_params_small if small else svm_models_n_params) + (tree_models_n_params_small if small else tree_models_n_params)
-    return main_loop(all_params, StandardScaler().fit_transform(x) if normalize_x else x, y, isClassification=True, n_jobs=n_jobs, verbose=verbose, brain=brain, test_size=test_size, n_splits=n_splits, upsample=upsample, scoring=scoring, grid_search=grid_search)
+def run_all_classifiers(x, y, small=False, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
+                        n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True):
+    linear = (linear_models_n_params_small if small else linear_models_n_params)
+    nn = (nn_models_n_params_small if small else nn_models_n_params)
+    gaussian = ([] if small else gaussianprocess_models_n_params)
+    neighbor = neighbor_models_n_params
+    svm = (svm_models_n_params_small if small else svm_models_n_params)
+    tree = (tree_models_n_params_small if small else tree_models_n_params)
 
-def run_one_classifier(x, y, small = True, normalize_x = True, n_jobs=cpu_count()-1, brain=False, test_size=0.2, n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True):
-    all_params = (linear_models_n_params_small if small else linear_models_n_params) +  (nn_models_n_params_small if small else nn_models_n_params) + ([] if small else gaussianprocess_models_n_params) + neighbor_models_n_params + (svm_models_n_params_small if small else svm_models_n_params) + (tree_models_n_params_small if small else tree_models_n_params)
+    all_params = linear + nn + gaussian + neighbor + svm + tree
+    return main_loop(all_params, StandardScaler().fit_transform(x) if normalize_x else x, y, isClassification=True,
+                     n_jobs=n_jobs, verbose=verbose, brain=brain, test_size=test_size, n_splits=n_splits,
+                     upsample=upsample, scoring=scoring, grid_search=grid_search)
+
+
+def run_one_classifier(x, y, small=True, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
+                       n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True):
+    linear = (linear_models_n_params_small if small else linear_models_n_params)
+    nn = (nn_models_n_params_small if small else nn_models_n_params)
+    gaussian = ([] if small else gaussianprocess_models_n_params)
+    neighbor = neighbor_models_n_params
+    svm = (svm_models_n_params_small if small else svm_models_n_params)
+    tree = (tree_models_n_params_small if small else tree_models_n_params)
+    all_params = tree
+
     all_params = random.choice(all_params)
     return all_params[0](**(list(ParameterSampler(all_params[1], n_iter=1))[0]))
 
 
 class HungaBungaClassifier(ClassifierMixin):
-    def __init__(self, brain=False, test_size = 0.2, n_splits = 5, random_state=None, upsample=True, scoring=None, verbose=False, normalize_x = True, n_jobs =cpu_count() - 1, grid_search=True):
+    def __init__(self, brain=False, test_size=0.2, n_splits=5, random_state=None, upsample=False, scoring=None,
+                 verbose=False, normalize_x=False, n_jobs=cpu_count() - 1, grid_search=True):
         self.model = None
+        self.res = None
+        self.stats = None
         self.brain = brain
         self.test_size = test_size
         self.n_splits = n_splits
         self.random_state = random_state
         self.upsample = upsample
-        self.scoring = None
+        self.scoring = scoring
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.normalize_x = normalize_x
@@ -202,7 +244,13 @@ class HungaBungaClassifier(ClassifierMixin):
         super(HungaBungaClassifier, self).__init__()
 
     def fit(self, x, y):
-        self.model = run_all_classifiers(x, y, normalize_x=self.normalize_x, test_size=self.test_size, n_splits=self.n_splits, upsample=self.upsample, scoring=self.scoring, verbose=self.verbose, brain=self.brain, n_jobs=self.n_jobs, grid_search=self.grid_search)[0]
+        result = \
+            run_all_classifiers(x, y, normalize_x=self.normalize_x, test_size=self.test_size, n_splits=self.n_splits,
+                                upsample=self.upsample, scoring=self.scoring, verbose=self.verbose, brain=self.brain,
+                                n_jobs=self.n_jobs, grid_search=self.grid_search)
+        self.model = result["winner"]
+        self.res = result["res"]
+        self.stats = result["stats"]
         return self
 
     def predict(self, x):
@@ -210,14 +258,15 @@ class HungaBungaClassifier(ClassifierMixin):
 
 
 class HungaBungaRandomClassifier(ClassifierMixin):
-    def __init__(self, brain=False, test_size = 0.2, n_splits = 5, random_state=None, upsample=True, scoring=None, verbose=False, normalize_x = True, n_jobs =cpu_count() - 1, grid_search=True):
+    def __init__(self, brain=False, test_size=0.2, n_splits=5, random_state=None, upsample=True, scoring=None,
+                 verbose=False, normalize_x=True, n_jobs=cpu_count() - 1, grid_search=True):
         self.model = None
         self.brain = brain
         self.test_size = test_size
         self.n_splits = n_splits
         self.random_state = random_state
         self.upsample = upsample
-        self.scoring = None
+        self.scoring = scoring
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.normalize_x = normalize_x
@@ -225,7 +274,10 @@ class HungaBungaRandomClassifier(ClassifierMixin):
         super(HungaBungaRandomClassifier, self).__init__()
 
     def fit(self, x, y):
-        self.model = run_one_classifier(x, y, normalize_x=self.normalize_x, test_size=self.test_size, n_splits=self.n_splits, upsample=self.upsample, scoring=self.scoring, verbose=self.verbose, brain=self.brain, n_jobs=self.n_jobs, grid_search=self.grid_search)
+        self.model = run_one_classifier(x, y, normalize_x=self.normalize_x, test_size=self.test_size,
+                                        n_splits=self.n_splits, upsample=self.upsample, scoring=self.scoring,
+                                        verbose=self.verbose, brain=self.brain, n_jobs=self.n_jobs,
+                                        grid_search=self.grid_search)
         self.model.fit(x, y)
         return self
 
@@ -236,7 +288,5 @@ class HungaBungaRandomClassifier(ClassifierMixin):
 if __name__ == '__main__':
     iris = datasets.load_iris()
     X, y = iris.data, iris.target
-    clf = HungaBungaClassifier()
+    clf = HungaBungaClassifier(scoring="f1_micro")
     clf.fit(X, y)
-    print(clf.predict(X).shape)
-
