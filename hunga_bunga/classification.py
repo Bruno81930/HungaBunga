@@ -196,7 +196,7 @@ tree_models_n_params_small = [
 ]
 
 
-def run_all_classifiers(x, y, small=False, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
+def run_all_classifiers(x, y, small=True, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
                         n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True):
     linear = (linear_models_n_params_small if small else linear_models_n_params)
     nn = (nn_models_n_params_small if small else nn_models_n_params)
@@ -206,6 +206,7 @@ def run_all_classifiers(x, y, small=False, normalize_x=True, n_jobs=cpu_count() 
     tree = (tree_models_n_params_small if small else tree_models_n_params)
 
     all_params = linear + nn + gaussian + neighbor + svm + tree
+    all_params = linear
     return main_loop(all_params, StandardScaler().fit_transform(x) if normalize_x else x, y, isClassification=True,
                      n_jobs=n_jobs, verbose=verbose, brain=brain, test_size=test_size, n_splits=n_splits,
                      upsample=upsample, scoring=scoring, grid_search=grid_search)
@@ -254,7 +255,8 @@ class HungaBungaClassifier(ClassifierMixin):
         return self
 
     def predict(self, x):
-        return self.model.predict(x)
+        return {model[0].__class__.__name__: model[0].predict(x) for model in self.res}
+
 
 
 class HungaBungaRandomClassifier(ClassifierMixin):
@@ -290,3 +292,4 @@ if __name__ == '__main__':
     X, y = iris.data, iris.target
     clf = HungaBungaClassifier(scoring="f1_micro")
     clf.fit(X, y)
+    clf.predict(X)
