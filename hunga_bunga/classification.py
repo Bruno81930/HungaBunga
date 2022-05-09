@@ -2,11 +2,12 @@ import random
 import warnings
 
 from sklearn.metrics import f1_score
+from sklearn.pipeline import Pipeline
 
 warnings.filterwarnings('ignore')
 
 import numpy as np
-from sklearn import datasets
+from sklearn import datasets, metrics
 from sklearn.linear_model import SGDClassifier, LogisticRegression, Perceptron, PassiveAggressiveClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
@@ -196,8 +197,8 @@ tree_models_n_params_small = [
 ]
 
 
-def run_all_classifiers(x, y, small=True, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
-                        n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True):
+def run_all_classifiers(x, y, small=False, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
+                        n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True, test=False):
     linear = (linear_models_n_params_small if small else linear_models_n_params)
     nn = (nn_models_n_params_small if small else nn_models_n_params)
     gaussian = ([] if small else gaussianprocess_models_n_params)
@@ -206,13 +207,16 @@ def run_all_classifiers(x, y, small=True, normalize_x=True, n_jobs=cpu_count() -
     tree = (tree_models_n_params_small if small else tree_models_n_params)
 
     all_params = linear + nn + gaussian + neighbor + svm + tree
-    all_params = linear
+
+    if test:
+        all_params = linear_models_n_params_small
+
     return main_loop(all_params, StandardScaler().fit_transform(x) if normalize_x else x, y, isClassification=True,
                      n_jobs=n_jobs, verbose=verbose, brain=brain, test_size=test_size, n_splits=n_splits,
                      upsample=upsample, scoring=scoring, grid_search=grid_search)
 
 
-def run_one_classifier(x, y, small=True, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
+def run_one_classifier(x, y, small=False, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
                        n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True):
     linear = (linear_models_n_params_small if small else linear_models_n_params)
     nn = (nn_models_n_params_small if small else nn_models_n_params)
@@ -228,7 +232,7 @@ def run_one_classifier(x, y, small=True, normalize_x=True, n_jobs=cpu_count() - 
 
 class HungaBungaClassifier(ClassifierMixin):
     def __init__(self, brain=False, test_size=0.2, n_splits=5, random_state=None, upsample=False, scoring=None,
-                 verbose=False, normalize_x=False, n_jobs=cpu_count() - 1, grid_search=True):
+                 verbose=False, normalize_x=False, n_jobs=cpu_count() - 1, grid_search=True, test=False):
         self.model = None
         self.res = None
         self.stats = None
@@ -242,13 +246,14 @@ class HungaBungaClassifier(ClassifierMixin):
         self.n_jobs = n_jobs
         self.normalize_x = normalize_x
         self.grid_search = grid_search
+        self.test = test
         super(HungaBungaClassifier, self).__init__()
 
     def fit(self, x, y):
         result = \
             run_all_classifiers(x, y, normalize_x=self.normalize_x, test_size=self.test_size, n_splits=self.n_splits,
                                 upsample=self.upsample, scoring=self.scoring, verbose=self.verbose, brain=self.brain,
-                                n_jobs=self.n_jobs, grid_search=self.grid_search)
+                                n_jobs=self.n_jobs, grid_search=self.grid_search, test=self.test)
         self.model = result["winner"]
         self.res = result["res"]
         self.stats = result["stats"]
@@ -256,7 +261,6 @@ class HungaBungaClassifier(ClassifierMixin):
 
     def predict(self, x):
         return {model[0].__class__.__name__: model[0].predict(x) for model in self.res}
-
 
 
 class HungaBungaRandomClassifier(ClassifierMixin):
@@ -290,6 +294,13 @@ class HungaBungaRandomClassifier(ClassifierMixin):
 if __name__ == '__main__':
     iris = datasets.load_iris()
     X, y = iris.data, iris.target
-    clf = HungaBungaClassifier(scoring="f1_micro")
+    clf = Pipeline(steps=[("hunga bunga", HungaBungaClassifier(scoring="f1_micro", test=True))])
     clf.fit(X, y)
-    clf.predict(X)
+    predictions = clf.predict(X)
+    aucs = {}
+    for model, prediction in predictions.items():
+        fpr, tpr, _ = metrics.roc_curve(y, prediction, pos_label=2)
+        auc = metrics.auc(fpr, tpr)
+        aucs[model] = auc
+    print(aucs)
+
