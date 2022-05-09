@@ -7,7 +7,7 @@ from regression import HungaBungaRegressor, HungaBungaRandomRegressor
 from classification import HungaBungaClassifier, HungaBungaRandomClassifier
 
 
-class HungaBungaZeroKnowledge(BaseEstimator):
+"""class HungaBungaZeroKnowledge(BaseEstimator):
     def __init__(self, brain=False, test_size = 0.2, n_splits = 5, random_state=None, upsample=True, scoring=None, verbose=True, normalize_x = True, n_jobs =cpu_count() - 1, grid_search=True):
         self.model = None
         self.brain = brain
@@ -37,3 +37,4 @@ class HungaBungaZeroKnowledge(BaseEstimator):
     def predict(self, x):
         return self.model.predict(x)
 
+"""
