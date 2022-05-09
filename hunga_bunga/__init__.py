@@ -1,11 +1,11 @@
 
-import warnings
+"""import warnings
 warnings.filterwarnings('ignore')
 from multiprocessing import cpu_count
 from sklearn.base import BaseEstimator
 from regression import HungaBungaRegressor, HungaBungaRandomRegressor
 from classification import HungaBungaClassifier, HungaBungaRandomClassifier
-
+"""
 
 """class HungaBungaZeroKnowledge(BaseEstimator):
     def __init__(self, brain=False, test_size = 0.2, n_splits = 5, random_state=None, upsample=True, scoring=None, verbose=True, normalize_x = True, n_jobs =cpu_count() - 1, grid_search=True):
