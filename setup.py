@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 setup(
     name='hunga_bunga',
     version='0.2',
-    packages=find_packages(exclude=['tests*']),
+    packages=find_packages(exclude=['tests*'], where="./hunga-bunga"),
     license='MIT',
     description='Brute-Force All of sklearn!',
     long_description=open('README.txt').read(),
