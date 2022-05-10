@@ -196,6 +196,12 @@ tree_models_n_params_small = [
       'min_samples_split': min_samples_split, 'min_samples_leaf': min_samples_leaf})
 ]
 
+test_params = [
+    (LogisticRegression,
+     {'penalty': penalty_12[0:2], 'max_iter': [max_iter[0]], 'tol': [tol[0]], 'warm_start': [warm_start[0]], 'C': [C[0]], 'solver': ['liblinear']
+      }),
+]
+
 
 def run_all_classifiers(x, y, small=False, normalize_x=True, n_jobs=cpu_count() - 1, brain=False, test_size=0.2,
                         n_splits=5, upsample=True, scoring=None, verbose=False, grid_search=True, test=False):
@@ -209,7 +215,7 @@ def run_all_classifiers(x, y, small=False, normalize_x=True, n_jobs=cpu_count() 
     all_params = linear + nn + gaussian + neighbor + svm + tree
 
     if test:
-        all_params = linear_models_n_params_small
+        all_params = test_params
 
     return main_loop(all_params, StandardScaler().fit_transform(x) if normalize_x else x, y, isClassification=True,
                      n_jobs=n_jobs, verbose=verbose, brain=brain, test_size=test_size, n_splits=n_splits,
